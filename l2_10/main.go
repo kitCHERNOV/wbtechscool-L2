@@ -20,7 +20,7 @@ func toReturnCorrectLessFuncs() []func(i, j int) bool {
 	var lessFuncs []func(i, j int) bool
 	if k > 0 {
 		return func(i, j int) bool {
-			return
+			
 		}
 	}
 }
