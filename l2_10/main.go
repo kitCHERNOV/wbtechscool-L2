@@ -23,7 +23,7 @@ var (
 
 func toReturnCorrectLessFuncs(strs []string) []func(i, j int) bool {
 	var lessFuncs []func(i, j int) bool = make([]func(i int, j int) bool, 0)
-	if k > 0 {
+	if k >= 0 {
 		lessFuncs = append(lessFuncs, func(i, j int) bool {
 			return strs[i][k] < strs[j][k]
 		})
@@ -43,6 +43,11 @@ func toReturnCorrectLessFuncs(strs []string) []func(i, j int) bool {
 				n2 += float64(v)
 			}
 			return n1 < n2
+		})
+	}
+	if r {
+		lessFuncs = append(lessFuncs, func(i, j int) bool {
+			return strs[i][k] < strs[j][k]
 		})
 	}
 	return lessFuncs
@@ -82,7 +87,6 @@ func main() {
 		if err != nil {
 			log.Fatalln(err)
 		}
-		fmt.Println("Readed data:", string(data))
 		arr := strings.Split(string(data), "\n")
 		for _, str := range arr {
 			sentencesArray = append(sentencesArray, str)
