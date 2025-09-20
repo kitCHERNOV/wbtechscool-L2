@@ -4,7 +4,6 @@ import (
 	"bufio"
 	"flag"
 	"fmt"
-	"io"
 	"log"
 	"os"
 	"sort"
@@ -21,44 +20,51 @@ var (
 	M                bool
 )
 
-func toReturnCorrectLessFuncs(strs []string) []func(i, j int) bool {
-	var lessFuncs []func(i, j int) bool = make([]func(i int, j int) bool, 0)
-	if k >= 0 {
-		lessFuncs = append(lessFuncs, func(i, j int) bool {
-			return strs[i][k] < strs[j][k]
-		})
-	}
-	if k < 0 {
-		lessFuncs = append(lessFuncs, func(i, j int) bool {
-			return strs[i][0] < strs[j][0]
-		})
-	}
-	if n {
-		lessFuncs = append(lessFuncs, func(i, j int) bool {
-			n1, n2 := 0., 0.
-			for _, v := range strs[i] {
-				n1 += float64(v)
+// Функция - генератор сортировки по номеру колонки и численному формату
+func getUnionCompareFunc(strs []string, k int, n bool, r bool) func(i, j int) bool {
+	return func(i, j int) bool {
+		field1 := strings.ToLower(strs[i])
+		field2 := strings.ToLower(strs[j])
+
+		if k > 0 {
+			splitArrI := strings.Split(strings.ToLower(strs[i]), "\t")
+			splitArrJ := strings.Split(strings.ToLower(strs[j]), "\t")
+
+			if len(splitArrI) >= k && len(splitArrJ) >= k {
+				field1 = splitArrI[k-1]
+				field2 = splitArrJ[k-1]
 			}
-			for _, v := range strs[j] {
-				n2 += float64(v)
+
+		}
+
+		var less bool
+
+		if n {
+			num1, err1 := strconv.Atoi(field1)
+			num2, err2 := strconv.Atoi(field2)
+
+			// Обработка ошибки так, чтобы было хоть какое-то сравнение
+			if err1 != nil || err2 != nil {
+				less = len(field1) < len(field2)
+			} else {
+				less = num1 < num2
 			}
-			return n1 < n2
-		})
+		} else {
+			less = field1 < field2
+		}
+
+		if r {
+			return !less
+		}
+		return less
 	}
-	if r {
-		lessFuncs = append(lessFuncs, func(i, j int) bool {
-			return strs[i][k] < strs[j][k]
-		})
-	}
-	return lessFuncs
 }
 
 func main() {
 	// declare a few variables
 	var (
-		in             = bufio.NewScanner(os.Stdin)
-		readline       = bufio.NewReader(os.Stdin)
 		sentencesArray []string
+		filePath       string
 	)
 
 	// Парсинг всех параметров
@@ -66,43 +72,47 @@ func main() {
 	flag.BoolVar(&n, "n", false, "number of rows")
 	flag.BoolVar(&r, "r", false, "number of rows")
 	flag.BoolVar(&u, "u", false, "number of updates")
-	flag.BoolVar(&M, "m", false, "number of updates")
-	flag.BoolVar(&b, "b", false, "number of updates")
-	flag.BoolVar(&c, "c", false, "number of updates")
-	flag.BoolVar(&h, "h", false, "number of updates")
 	flag.Parse()
+	// Если существует параметр
+	filePath = flag.Arg(0)
 
-	// first scanning of text for recognizing file path
-	fmt.Println("Where are you want to read data from?")
-	fmt.Println("If you want to write data into console, just press enter w/o any symbols")
-	in.Scan()
-	if path := in.Text(); path != "" {
-		file, err := os.Open(path)
+	if filePath != "" {
+		file, err := os.Open(filePath)
 		if err != nil {
 			log.Fatalln(err)
 		}
-		defer file.Close()
-		var data []byte
-		data, err = io.ReadAll(file)
-		if err != nil {
-			log.Fatalln(err)
-		}
-		arr := strings.Split(string(data), "\n")
-		for _, str := range arr {
-			sentencesArray = append(sentencesArray, str)
-		}
+		defer func() {
+			err := file.Close()
+			if err != nil {
+				log.Fatalln(err)
+			}
+		}()
 
-	} else {
-		var amountOfStrings int
-		fmt.Println("And How many strings you want to write")
+		//var data []byte
+		var readline = bufio.NewScanner(file)
+		for readline.Scan() {
+			sentencesArray = append(sentencesArray, readline.Text())
+		}
+		//data, err = io.ReadAll(file)
+		//if err != nil {
+		//	log.Fatalln(err)
+		//}
+		//arr := strings.Split(string(data), "\n")
+		//for _, str := range arr {
+		//	sentencesArray = append(sentencesArray, str)
+		//}
+
+	} else if flag.NArg() == 0 {
+		var sc = bufio.NewScanner(os.Stdin)
+		//var amountOfStrings int
+		fmt.Println("How many strings you want to write")
 		fmt.Println("Please enter sentences with enter pressing at end of each sentence")
-		in.Scan() // Reading of amount of strings parameter
-		amountOfStrings, _ = strconv.Atoi(in.Text())
-
-		var data []byte
-		for i := 0; i < amountOfStrings; i++ {
-			data, _, _ = readline.ReadLine()
-			sentencesArray = append(sentencesArray, string(data))
+		//for i := 0; i < amountOfStrings; i++ {
+		//	in.Scan()
+		//	sentencesArray = append(sentencesArray, in.Text())
+		//}
+		for sc.Scan() {
+			sentencesArray = append(sentencesArray, sc.Text())
 		}
 	}
 
@@ -112,14 +122,35 @@ func main() {
 		fmt.Println(v)
 	}
 
+	fmt.Println(
+		"##=============##" +
+			"\n" +
+			"##=============##")
+
 	// Sorting by flags
-	for _, f := range toReturnCorrectLessFuncs(sentencesArray) {
-		sort.Slice(sentencesArray, f)
-	}
+	compareFunc := getUnionCompareFunc(sentencesArray, k, n, r)
+	sort.Slice(sentencesArray, compareFunc)
 
-	fmt.Println("After sorting")
-	for _, v := range sentencesArray {
-		fmt.Println(v)
-	}
+	if u {
+		var m = make(map[string]bool)
+		var finalArr []string
+		for _, v := range sentencesArray {
+			if _, ok := m[v]; !ok {
+				m[v] = true
+			}
+		}
+		for k, _ := range m {
+			finalArr = append(finalArr, k)
+		}
 
+		fmt.Println("After sorting")
+		for _, v := range finalArr {
+			fmt.Println(v)
+		}
+	} else {
+		fmt.Println("After sorting")
+		for _, v := range sentencesArray {
+			fmt.Println(v)
+		}
+	}
 }
