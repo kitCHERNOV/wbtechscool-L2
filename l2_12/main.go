@@ -6,26 +6,67 @@ import (
 	"fmt"
 	"log"
 	"os"
+	"regexp"
 	"strconv"
 	"strings"
 )
 
+// type for returning result
+type grepResult struct {
+	Strings      []string
+	NumOfStrings []int
+	Amount       int // if flag c is set
+}
+
 type Flags struct {
 	c bool // flag to write amount of desired lines
+	i bool // flag to ignore register of word
+	v bool // inverse of filters
+	f bool // string should be strict equal the string is inputted
+	n bool // print number of each string
 }
 
-func (f *Flags) getCParameter() bool {
-	return f.c
+func (gr *grepResult) addElems(str string, ind int) {
+	gr.Strings = append(gr.Strings, str)
+	gr.NumOfStrings = append(gr.NumOfStrings, ind)
+	gr.Amount++
 }
 
-func grepFunc(substring string, sentences []string, flags Flags) []string {
-
-	for _, sentence := range sentences {
-		if strings.Contains(sentence, substring) {
-
-		}
+func grepFunc(substring string, sentences []string, flags Flags) grepResult {
+	var result grepResult
+	// prefer to -F flag solution
+	searchPattern := substring
+	if flags.f && flags.i {
+		searchPattern = strings.ToLower(substring)
 	}
-	return sentences
+	// prefer to no -f flag solution
+	var regExp *regexp.Regexp
+	var pattern string
+	if !flags.f {
+		pattern = substring
+		if flags.i {
+			pattern = "(?i)" + substring // (?i) делает regex нечувствительным к регистру
+		}
+		regExp = regexp.MustCompile(pattern)
+	}
+
+	for i, sentence := range sentences {
+		// adding
+		var matched bool
+		if flags.f {
+			matched = strings.Contains(sentence, searchPattern)
+		} else {
+			if regExp != nil {
+				matched = regExp.MatchString(sentence)
+			}
+		}
+		// matched = true and v flag = false or reverse params
+		if matched != flags.v {
+			result.addElems(sentences[i], i)
+		}
+
+	}
+	return result
 }
 
 func main() {
@@ -35,10 +76,15 @@ func main() {
 	var sentences []string
 
 	flag.BoolVar(&flags.c, "c", false, "number of matches")
+	flag.BoolVar(&flags.i, "i", false, "ignore of register")
+	flag.BoolVar(&flags.v, "v", false, "reverse flag parameter")
+	flag.BoolVar(&flags.n, "n", false, "enumerate each string")
+	flag.BoolVar(&flags.v, "f", false, "finding strict search line")
 	flag.Parse()
 
 	// file path to read from
-	filePath := flag.Arg(0)
+	subString := flag.Arg(0)
+	filePath := flag.Arg(1)
 
 	if filePath != "" {
 		file, err := os.Open(filePath)
@@ -82,5 +128,17 @@ func main() {
 	}
 
 	// Call grep func
-	grepFunc(sentences, flags)
+	res := grepFunc(subString, sentences, flags)
+	if flags.c {
+		fmt.Printf("amount of matches = %d;\n", res.Amount)
+	} else {
+		// printing of all match strings
+		for i, matchStr := range res.Strings {
+			if flags.n {
+				fmt.Printf("str num: %d; match: %s\n", res.NumOfStrings[i], matchStr)
+				continue
+			}
+			fmt.Printf("match: %s\n", matchStr)
+		}
+	}
 }
