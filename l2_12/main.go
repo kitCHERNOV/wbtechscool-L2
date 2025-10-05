@@ -5,9 +5,10 @@ import (
 	"flag"
 	"fmt"
 	"log"
+	"math"
 	"os"
 	"regexp"
-	"strconv"
+	"sort"
 	"strings"
 )
 
@@ -24,6 +25,9 @@ type Flags struct {
 	v bool // inverse of filters
 	f bool // string should be strict equal the string is inputted
 	n bool // print number of each string
+	A int  // return A elems before match
+	B int  // return B elems after match
+	C int  // return C elems before and after match
 }
 
 func (gr *grepResult) addElems(str string, ind int) {
@@ -54,7 +58,11 @@ func grepFunc(substring string, sentences []string, flags Flags) grepResult {
 		// adding
 		var matched bool
 		if flags.f {
-			matched = strings.Contains(sentence, searchPattern)
+			if flags.i {
+				matched = strings.Contains(strings.ToLower(sentence), searchPattern)
+			} else {
+				matched = strings.Contains(sentence, searchPattern)
+			}
 		} else {
 			if regExp != nil {
 				matched = regExp.MatchString(sentence)
@@ -79,7 +87,10 @@ func main() {
 	flag.BoolVar(&flags.i, "i", false, "ignore of register")
 	flag.BoolVar(&flags.v, "v", false, "reverse flag parameter")
 	flag.BoolVar(&flags.n, "n", false, "enumerate each string")
-	flag.BoolVar(&flags.v, "f", false, "finding strict search line")
+	flag.BoolVar(&flags.f, "F", false, "finding strict search line")
+	flag.IntVar(&flags.A, "A", 0, "amount of words after match")
+	flag.IntVar(&flags.B, "B", 0, "amount of words before match")
+	flag.IntVar(&flags.C, "C", 0, "amount of words after and before match")
 	flag.Parse()
 
 	// file path to read from
@@ -102,43 +113,68 @@ func main() {
 			sentences = append(sentences, readline.Text())
 		}
 	} else {
-		var (
-			amountOfSentences int
-			err               error
-		)
-		fmt.Println("Enter amount of sentences: ")
 		sc := bufio.NewScanner(os.Stdin)
-		// scan amount of sentences
-		for {
-			sc.Scan()
-			amountOfSentences, err = strconv.Atoi(sc.Text())
-			if err != nil {
-				log.Println("Error: ", err)
-				fmt.Println("Please enter a valid amount of sentences")
-				continue
-			}
-			break
-		}
-		sentences = make([]string, amountOfSentences)
-		for i := range sentences {
-			// fill sentence's array
-			sc.Scan()
-			sentences[i] = sc.Text()
+		sentences = make([]string, 0)
+		for sc.Scan() {
+			sentences = append(sentences, sc.Text())
 		}
 	}
 
 	// Call grep func
 	res := grepFunc(subString, sentences, flags)
+
 	if flags.c {
 		fmt.Printf("amount of matches = %d;\n", res.Amount)
 	} else {
-		// printing of all match strings
-		for i, matchStr := range res.Strings {
-			if flags.n {
-				fmt.Printf("str num: %d; match: %s\n", res.NumOfStrings[i], matchStr)
-				continue
+		// Alternative solution
+		var (
+			A       int          = 0
+			B       int          = 0
+			indexes []int        // indexes for printing
+			m       map[int]bool = make(map[int]bool)
+		)
+		if flags.A >= 1 {
+			A = flags.A
+		}
+		if flags.B >= 1 {
+			B = flags.B
+		}
+		if flags.C >= 1 {
+			A = flags.C
+			B = flags.C
+		}
+		for _, numOfStr := range res.NumOfStrings {
+			// calculate difference parameters
+			differenceAfter := int(math.Min(float64(numOfStr+A), float64(len(sentences)-1)))
+			differenceBefore := int(math.Max(float64(numOfStr-B), 0))
+			//if flags.n {
+			if B >= 1 {
+				for i := differenceBefore; i <= numOfStr; i++ {
+					m[i] = true
+				}
 			}
-			fmt.Printf("match: %s\n", matchStr)
+			if A >= 1 {
+				for i := numOfStr; i <= differenceAfter; i++ {
+					m[i] = true
+				}
+			}
+			if flags.B == 0 && flags.A == 0 && flags.C == 0 {
+				m[numOfStr] = true
+				//continue
+			}
+		}
+
+		// print left strings
+		for elem := range m {
+			indexes = append(indexes, elem)
+		}
+		sort.Ints(indexes)
+		for _, elem := range indexes {
+			if flags.n {
+				fmt.Printf("str num: %d; %s\n", elem, sentences[elem])
+			} else {
+				fmt.Printf("match: %s\n", sentences[elem])
+			}
 		}
 	}
 }
