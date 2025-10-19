@@ -104,10 +104,10 @@ const (
 	lenOfBuffer = 50
 )
 
-func (cs *commandStack) Run(amountOfBuffers int) {
+func (cs *commandStack) Run() {
 
 	// initialization of buffers
-	for i := 0; i < amountOfBuffers-1; i++ {
+	for i := 0; i < len(cs.stack) - 1; i++ {
 		var buffer = &bytes.Buffer{}
 		cs.stack[i].Stdout = buffer
 		cs.stack[i+1].Stdin = buffer
@@ -152,7 +152,7 @@ func (cs *commandStack) Run(amountOfBuffers int) {
 				fmt.Printf("Error: %s\n", err)
 			}
 			// write to buf for the next command
-			_, err = cmd.Stdout.Write([]byte(res))
+			_, err = cmd.Stdout.Write([]byte(res+"\n"))
 			if err != nil {
 				fmt.Printf("Error: %s\n", err)
 			}

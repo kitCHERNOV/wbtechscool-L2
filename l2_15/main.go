@@ -24,7 +24,7 @@ func shellManager(text string) {
 		fmt.Printf("Error: %s\n", err)
 	}
 
-	cmdStack.Run(len(commandLine) - 1)
+	cmdStack.Run()
 }
 
 func shellLaunch() {
