@@ -5,9 +5,12 @@ import (
 	"fmt"
 	"io"
 	"os"
+	"os/exec"
 	"strconv"
 	"strings"
 	"syscall"
+
+	"github.com/mitchellh/go-ps"
 )
 
 type command struct {
@@ -67,8 +70,16 @@ func (cs *commandStack) pwd() (string, error) {
 	return path, err
 }
 
-func (cs *commandStack) ps() ([]string, error) {
-
+func (cs *commandStack) ps() ([]int, error) {
+	processes, err := ps.Processes()
+	if err != nil {
+		return nil, err
+	}
+	var processPIDs []int = make([]int, len(processes))
+	for i, process := range processes {
+		processPIDs[i] = process.Pid()
+	}
+	return processPIDs, nil
 }
 
 func (cs *commandStack) kill(pidStr string) error {
@@ -154,6 +165,46 @@ func (cs *commandStack) Run(amountOfBuffers int) {
 				if err != nil {
 					fmt.Printf("Error: %s\n", err)
 				}
+			}
+		case "ps":
+			processesPids, err := cs.ps()
+			if err != nil {
+				fmt.Printf("Error: %s\n", err)
+				continue
+			}
+
+			// prepare data
+			var builder strings.Builder
+			for _, process := range processesPids {
+				strProcessPid := strconv.Itoa(process)
+				builder.WriteString(strProcessPid)
+				builder.WriteString("\n")
+			}
+
+			buffer := []byte(builder.String())
+			_, err = cmd.Stdout.Write(buffer)
+			if err != nil {
+				fmt.Printf("Error: %s\n", err)
+			}
+		case "kill":
+			if len(cmd.args) < 1 {
+				fmt.Printf("Error: Not enough arguments\n")
+				continue
+			}
+			pid := cmd.args[0]
+			err := cs.kill(pid)
+			if err != nil {
+				fmt.Printf("Error: %s\n", err)
+			}
+		// handle other commands
+		default:
+			externalCmd := exec.Command(cmd.name, cmd.args...)
+			externalCmd.Stdin = cmd.Stdin
+			externalCmd.Stdout = cmd.Stdout
+			err := externalCmd.Run()
+			if err != nil {
+				fmt.Printf("Error: %s\n", err)
+				continue
 			}
 		}
 	}
