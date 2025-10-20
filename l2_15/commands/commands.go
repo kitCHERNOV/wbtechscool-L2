@@ -104,7 +104,7 @@ const (
 	lenOfBuffer = 50
 )
 
-func (cs *commandStack) Run() {
+func (cs *commandStack) Run(shutDownCh <-chan struct{}) {
 
 	// initialization of buffers
 	for i := 0; i < len(cs.stack) - 1; i++ {
