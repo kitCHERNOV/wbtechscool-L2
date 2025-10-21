@@ -2,6 +2,7 @@ package commands
 
 import (
 	"bytes"
+	"context"
 	"fmt"
 	"io"
 	"os"
@@ -34,8 +35,12 @@ func NewCommandStack(CommandString []string) (*commandStack, error) {
 		//argsIndexes: []int{},
 	}
 	for _, element := range CommandString {
+		fmt.Printf("DEBUG: Parsing element: [%s]\n", element)
 		cmdAndArguments := strings.Fields(element)
+		fmt.Printf("DEBUG: Fields result: %v\n", cmdAndArguments)
+		// fmt.Println("cmdAndArgsLength:", len(cmdAndArguments))
 		if len(cmdAndArguments) == 0 { // || len(cmdAndArguments[0]) == 1 {
+			fmt.Println("DEBUG: Skipping empty command")
 			continue
 		}
 		cmdName := cmdAndArguments[0]
@@ -47,6 +52,7 @@ func NewCommandStack(CommandString []string) (*commandStack, error) {
 		}
 		cmdStack.stack = append(cmdStack.stack, cmd)
 	}
+	
 
 	return &cmdStack, nil
 }
@@ -104,18 +110,23 @@ const (
 	lenOfBuffer = 50
 )
 
-func (cs *commandStack) Run(shutDownCh <-chan struct{}) {
+func (cs *commandStack) Run(ctx context.Context) {
 
 	// initialization of buffers
 	for i := 0; i < len(cs.stack) - 1; i++ {
 		var buffer = &bytes.Buffer{}
 		cs.stack[i].Stdout = buffer
 		cs.stack[i+1].Stdin = buffer
+		// var reader, writer = io.Pipe()
+		// cs.stack[i].Stdout = writer
+		// cs.stack[i+1].Stdin = reader
 	}
 	// init Stdout for last command
 	//var buffer bytes.Buffer
 	cs.stack[len(cs.stack)-1].Stdout = os.Stdout
 
+	// slice to store running commands
+	var runningCmds []*exec.Cmd
 	// previosReturnedResult := ""
 	for i, cmd := range cs.stack {
 		// read data from stdin
@@ -198,14 +209,35 @@ func (cs *commandStack) Run(shutDownCh <-chan struct{}) {
 			}
 		// handle other commands
 		default:
-			externalCmd := exec.Command(cmd.name, cmd.args...)
+			externalCmd := exec.CommandContext(ctx, cmd.name, cmd.args...)
 			externalCmd.Stdin = cmd.Stdin
 			externalCmd.Stdout = cmd.Stdout
-			err := externalCmd.Run()
+			// err := externalCmd.Run()
+			err := externalCmd.Start()
 			if err != nil {
-				fmt.Printf("Error: %s\n", err)
+				fmt.Printf("%sError: %s\n", cmd.name, err)
 				continue
 			}
+			
+			runningCmds = append(runningCmds, externalCmd)
+			
 		}
 	}
+
+	// shut down all running commands
+	const op = "WAITCMDS"
+	for _, cmd := range runningCmds {
+		err := cmd.Wait()
+		if err != nil {
+			// dont wtire error if context is canceled (Ctrl+C)
+            if ctx.Err() == nil {
+                fmt.Printf("%sError: %s\n", op, err)
+            }
+		}
+		// // Закрыть Stdout этой команды (если это PipeWriter)
+        // if w, ok := cs.stack[i].Stdout.(*io.PipeWriter); ok {
+        //     w.Close()
+        // }
+	}
+
 }
