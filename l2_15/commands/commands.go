@@ -63,7 +63,6 @@ func (cs *commandStack) echo(args []string) string {
 }
 
 func (cs *commandStack) cd(path string) (string, error) {
-	// WARN: проверить корректность восприятия пути path-ом
 	err := os.Chdir(path)
 	if err != nil {
 		return "Not OK", fmt.Errorf("dirrectory is not found; error: %v", err)

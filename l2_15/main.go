@@ -14,9 +14,6 @@ import (
 // 2. Рекурсивный вызов позволит последовательно обрабатывать последовательность команд,
 // так чтобы каждый результат мог быть обработан следующей командой
 
-// TODO: Сделать реализацию каждой команды shell оболочки
-// TODO: Функция вызова этих команд по необходимости (добавить pipeline - пока опционально)
-
 func shellManager(text string) {
 	// prepare get interupt syscall
 	ctx, cancel := signal.NotifyContext(context.Background(), os.Interrupt)
