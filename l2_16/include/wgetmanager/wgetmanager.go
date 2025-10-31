@@ -1,9 +1,10 @@
 package wgetmanager
 
 import (
-	_ "bufio"
+	"bufio"
 	"fmt"
 	"net/http"
+	"os"
 	"wget/include/handlers"
 	"wget/include/logger"
 )
@@ -16,10 +17,10 @@ func WgetManager() {
 		url string = "https://www.example.com"
 	)
 
-	// scanner := bufio.NewScanner(os.Stdin)
-	// // read url from terminal
-	// scanner.Scan()
-	// url = scanner.Text()
+	scanner := bufio.NewScanner(os.Stdin)
+	// read url from terminal
+	scanner.Scan()
+	url = scanner.Text()
 
 	// execute a get request
 	includedLinks := handlers.NewHtmlIncludedLinksStruct()
@@ -37,7 +38,4 @@ func WgetManager() {
 	includedLinks.HtmlParser(response.Body)
 
 	includedLinks.DownloadPages()
-	// TODO: to wrap next code in for loop
-	// for {
-	// }
 }

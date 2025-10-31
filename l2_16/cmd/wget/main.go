@@ -9,7 +9,6 @@ import (
 
 func main() {
 	// start service
-	// TODO: add getting urls ant throw down to WgetManager
 	wgetmanager.WgetManager()
 	directories.ToCreateDirectories()
 }

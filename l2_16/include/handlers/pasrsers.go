@@ -9,7 +9,6 @@ import (
 	"path"
 	"path/filepath"
 	"reflect"
-	"strings"
 	"wget/include/logger"
 
 	"golang.org/x/net/html"
@@ -53,30 +52,29 @@ func (incLinks *htmlIncludedLinks) DownloadPages() {
 
 		var folderName string
 		switch fieldName {
-        case "CssLinks":
-            folderName = "css"
-        case "JsLinks":
-            folderName = "js"
-        case "Images":
-            folderName = "images"
-        default:
-            continue
-        }
+		case "CssLinks":
+			folderName = "css"
+		case "JsLinks":
+			folderName = "js"
+		case "Images":
+			folderName = "images"
+		default:
+			continue
+		}
 		// all directories shoud be created in main func
 		urls := field.Interface().([]string)
 		for _, url := range urls {
-			
-			
+			_ = downloadFile(url, folderName, Logger)
 		}
 	}
 }
 
-func downloadFile(urlStr, folder string, logger *logger.Logger) {
+func downloadFile(urlStr, folder string, logger *logger.Logger) error {
 	// get file name
 	parsedURL, err := url.Parse(urlStr)
 	if err != nil {
 		fmt.Fprintf(logger, "parse url error: %w", err)
-		return
+		return err
 	}
 
 	fileName := path.Base(parsedURL.Path)
@@ -91,31 +89,47 @@ func downloadFile(urlStr, folder string, logger *logger.Logger) {
 	resp, err := http.Get(urlStr)
 	if err != nil {
 		fmt.Fprintf(logger, "getting url: %s error: %v", urlStr, err)
+		return err
 	}
 
 	defer resp.Body.Close()
 
 	// Check download status
 	if resp.StatusCode != http.StatusOK {
-		
+		fmt.Fprintf(logger, "response status code is not OK error: %v", err)
+		return err
 	}
+
+	file, err := os.Create(filePath)
+	if err != nil {
+		fmt.Fprintf(logger, "creating file: %s error: %v", filePath, err)
+	}
+
+	defer file.Close()
+
+	_, err = io.Copy(file, resp.Body)
+	if err != nil {
+		fmt.Fprintf(logger, "downloading file: %s error: %v", filePath, err)
+		return err
+	}
+
+	return nil
 }
 
-
 func generateFileName(urlStr, folder string) string {
-    // Используем хеш URL или timestamp
-    hash := fmt.Sprintf("%d", len(urlStr)) // Простой пример
-    
-    var ext string
-    switch folder {
-    case "css":
-        ext = ".css"
-    case "js":
-        ext = ".js"
-    case "images":
-        // Можно попробовать определить из Content-Type
-        ext = ".png" // По умолчанию
-    }
-    
-    return fmt.Sprintf("file_%s%s", hash, ext)
+	// Используем хеш URL или timestamp
+	hash := fmt.Sprintf("%d", len(urlStr)) // Простой пример
+
+	var ext string
+	switch folder {
+	case "css":
+		ext = ".css"
+	case "js":
+		ext = ".js"
+	case "images":
+		// Можно попробовать определить из Content-Type
+		ext = ".png" // По умолчанию
+	}
+
+	return fmt.Sprintf("file_%s%s", hash, ext)
 }
