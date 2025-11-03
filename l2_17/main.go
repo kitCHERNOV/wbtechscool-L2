@@ -6,10 +6,13 @@ import (
 	"bufio"
 	"flag"
 	"fmt"
+	"io"
 	"log"
 	"net"
 	"os"
+	"os/signal"
 	"sync"
+	"syscall"
 	"time"
 )
 
@@ -20,6 +23,19 @@ type ConnectionParameters struct {
 }
 
 func main() {
+
+	// to catch interrupt signals
+	//sigChan := make(chan os.Signal, 1)
+	//signal.Notify(sigChan, syscall.SIGINT)
+
+	signal.Ignore(syscall.SIGINT, os.Interrupt)
+	//go func() {
+	//	for sig := range sigChan {
+	//		if sig == syscall.SIGINT {
+	//			log.Println("Ctrl+C command is handled")
+	//		}
+	//	}
+	//}()
 
 	var connectionParameters ConnectionParameters = ConnectionParameters{}
 
@@ -75,11 +91,16 @@ func main() {
 	wg.Add(1)
 	go func() {
 		defer wg.Done()
-		scanner := bufio.NewScanner(os.Stdin)
-		//scanner := bufio.NewReader(os.Stdin)
-		for scanner.Scan() {
+		//scanner := bufio.NewScanner(os.Stdin)
+		reader := bufio.NewReader(os.Stdin)
+		for {
+			input, err := reader.ReadString('\n')
+
+			if err == io.EOF {
+				return
+			}
 			signalChannel <- struct{}{}
-			_, err := connection.Write([]byte(scanner.Text()))
+			_, err = connection.Write([]byte(input))
 			if err != nil {
 				log.Fatalf("tcp write error: %v", err)
 				return
