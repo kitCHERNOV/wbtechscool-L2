@@ -23,12 +23,17 @@ type ConnectionParameters struct {
 }
 
 func main() {
-
-	// to catch interrupt signals
+	//
+	//ctx, cancel := context.WithCancel(context.Background())
+	//defer cancel()
+	//
+	//// to catch interrupt signals
 	//sigChan := make(chan os.Signal, 1)
-	//signal.Notify(sigChan, syscall.SIGINT)
+	//signal.Notify(sigChan, syscall.SIGINT, syscall.SIGTERM)
 
 	signal.Ignore(syscall.SIGINT, os.Interrupt)
+	log.Println("Ctrl+C игнорируется. Используйте Ctrl+D для завершения программы.")
+
 	//go func() {
 	//	for sig := range sigChan {
 	//		if sig == syscall.SIGINT {
@@ -59,31 +64,40 @@ func main() {
 	)
 	//con := net.DialTCP()
 
-	ticker := time.NewTicker(time.Second)
-	secondsCounter := 0
-	isConnected := false
-	for secondsCounter < timeout && !isConnected {
-		select {
-		case <-ticker.C:
-			secondsCounter++
-			var err error
-			log.Printf("try to connect number: %d", secondsCounter)
-			connection, err = net.Dial("tcp", remoteAddres)
-			if err != nil {
-				log.Fatalf("tcp connection error: %v", err)
-			} else {
-				isConnected = true
-				log.Println("Connection is set")
-			}
-		}
+	dialer := net.Dialer{Timeout: connectionParameters.Timeout}
+	connection, err := dialer.Dial("tcp", remoteAddres)
+	if err != nil {
+		log.Println(err)
 	}
-	ticker.Stop()
-	defer func() {
-		err := connection.Close()
-		if err != nil {
-			panic(err)
-		}
-	}()
+
+	defer connection.Close()
+	log.Println("connection is set")
+
+	//ticker := time.NewTicker(time.Second)
+	//secondsCounter := 0
+	//isConnected := false
+	//for secondsCounter < timeout && !isConnected {
+	//	select {
+	//	case <-ticker.C:
+	//		secondsCounter++
+	//		var err error
+	//		log.Printf("try to connect number: %d", secondsCounter)
+	//		connection, err = net.Dial("tcp", remoteAddres)
+	//		if err != nil {
+	//			log.Fatalf("tcp connection error: %v", err)
+	//		} else {
+	//			isConnected = true
+	//			log.Println("Connection is set")
+	//		}
+	//	}
+	//}
+	//ticker.Stop()
+	//defer func() {
+	//	err := connection.Close()
+	//	if err != nil {
+	//		panic(err)
+	//	}
+	//}()
 
 	// launch two goroutins for writing and reading
 	var wg sync.WaitGroup
@@ -91,6 +105,7 @@ func main() {
 	wg.Add(1)
 	go func() {
 		defer wg.Done()
+		defer close(signalChannel)
 		//scanner := bufio.NewScanner(os.Stdin)
 		reader := bufio.NewReader(os.Stdin)
 		for {
@@ -99,11 +114,16 @@ func main() {
 			if err == io.EOF {
 				return
 			}
-			signalChannel <- struct{}{}
+
+			if err != nil {
+				log.Println(err)
+				//return
+			}
+
 			_, err = connection.Write([]byte(input))
 			if err != nil {
-				log.Fatalf("tcp write error: %v", err)
-				return
+				log.Printf("tcp write error: %v", err)
+				//return
 			}
 		}
 	}()
@@ -114,18 +134,33 @@ func main() {
 		defer wg.Done()
 		for {
 			buffer := make([]byte, 255)
-			<-signalChannel
-			err := connection.SetDeadline(time.Now().Add(connectionParameters.Timeout))
-			if err != nil {
-				log.Fatalf("tcp set connection deadline error: %v", err)
-			}
-			_, err = connection.Read(buffer)
-			if err != nil {
-				log.Fatalf("tcp read error: %v", err)
-				break
+			select {
+			case <-signalChannel:
+				log.Println("reading is closed")
+				return
+			default:
 			}
 
-			fmt.Print(string(buffer))
+			err := connection.SetDeadline(time.Now().Add(connectionParameters.Timeout))
+			if err != nil {
+				log.Printf("tcp set connection deadline error: %v", err)
+			}
+
+			n, err := connection.Read(buffer)
+			if err != nil {
+				if netErr, ok := err.(net.Error); ok && netErr.Timeout() {
+					continue
+				}
+
+				if err == io.EOF {
+					log.Printf("tcp read error: %v", err)
+				}
+				return
+			}
+
+			if n > 0 {
+				fmt.Print(string(buffer[:n]))
+			}
 		}
 	}()
 
