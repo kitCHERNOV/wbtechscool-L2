@@ -14,7 +14,7 @@ func WgetManager() {
 	logger := logger.NewLogger()
 
 	var (
-		url string = "https://www.example.com"
+		url string = "https://parsemachine.com/sandbox/"//"https://www.example.com"
 	)
 
 	scanner := bufio.NewScanner(os.Stdin)
