@@ -2,8 +2,9 @@ package main
 
 import (
 	"calendar/internal/calendar/middlewares"
+	"calendar/internal/handlers"
 	"calendar/internal/logger"
-	"encoding/json"
+	"calendar/internal/storage"
 	"log"
 	"net/http"
 	"time"
@@ -18,96 +19,53 @@ import (
 // GET /events_for_week — события на неделю;
 // GET /events_for_month — события на месяц.
 
-
 func main() {
-    mux := http.NewServeMux()
-	
-    // Регистрация обработчиков
-    mux.HandleFunc("/create_event", createEventHandler)
-    mux.HandleFunc("/update_event", updateEventHandler)
-    mux.HandleFunc("/delete_event", deleteEventHandler)
-    mux.HandleFunc("/events_for_day", eventsForDayHandler)
-    mux.HandleFunc("/events_for_week", eventsForWeekHandler)
-    mux.HandleFunc("/events_for_month", eventsForMonthHandler)
+	// Настройка конфигурации
 
-    // Middleware для логирования
-	logger := logger.NewLogger()
-    handler := middlewares.LoggingMiddleware(mux, logger)
+	// инициализация логгера 
+	logger, err := logger.NewLogger()
+	if err != nil {
+		log.Fatalf("Failed to initialize logger: %v", err)
+	}
+	defer logger.Close()
 
-    // Запуск сервера
-    addr := ":8080"
-    log.Printf("Starting server on %s", addr)
-    
-    server := &http.Server{
-        Addr:         addr,
-        Handler:      handler,
-        ReadTimeout:  10 * time.Second,
-        WriteTimeout: 10 * time.Second,
-    }
+	logger.Info("aplication starting")
 
-    if err := server.ListenAndServe(); err != nil {
-        log.Fatal(err)
-    }
-}
 
-// Заглушки обработчиков (реализуй сам)
-func createEventHandler(w http.ResponseWriter, r *http.Request) {
-    if r.Method != http.MethodPost {
-        http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
-        return
-    }
-    // TODO: реализовать
-    respondJSON(w, http.StatusOK, map[string]string{"status": "created"})
-}
 
-func updateEventHandler(w http.ResponseWriter, r *http.Request) {
-    if r.Method != http.MethodPost {
-        http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
-        return
-    }
-    // TODO: реализовать
-    respondJSON(w, http.StatusOK, map[string]string{"status": "updated"})
-}
+	// база данных событий календаря
+	var eventStorage = storage.NewEventStorage(logger)
 
-func deleteEventHandler(w http.ResponseWriter, r *http.Request) {
-    if r.Method != http.MethodPost {
-        http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
-        return
-    }
-    // TODO: реализовать
-    respondJSON(w, http.StatusOK, map[string]string{"status": "deleted"})
-}
+	// основной обработчик
+	handler := handlers.NewHandler(eventStorage, logger)
 
-func eventsForDayHandler(w http.ResponseWriter, r *http.Request) {
-    if r.Method != http.MethodGet {
-        http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
-        return
-    }
-    // TODO: реализовать
-    respondJSON(w, http.StatusOK, []string{})
-}
 
-func eventsForWeekHandler(w http.ResponseWriter, r *http.Request) {
-    if r.Method != http.MethodGet {
-        http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
-        return
-    }
-    // TODO: реализовать
-    respondJSON(w, http.StatusOK, []string{})
-}
+	// Http сервис
+	mux := http.NewServeMux()
 
-func eventsForMonthHandler(w http.ResponseWriter, r *http.Request) {
-    if r.Method != http.MethodGet {
-        http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
-        return
-    }
-    // TODO: реализовать
-    respondJSON(w, http.StatusOK, []string{})
-}
+	// Регистрация обработчиков
+	mux.HandleFunc("/create_event", handler.CreateEventHandler)
+	mux.HandleFunc("/update_event", handler.UpdateEventHandler)
+	mux.HandleFunc("/delete_event", handler.DeleteEventHandler)
+	mux.HandleFunc("/events_for_day", handler.EventsForDayHandler)
+	mux.HandleFunc("/events_for_week", handler.EventsForWeekHandler)
+	mux.HandleFunc("/events_for_month", handler.EventsForMonthHandler)
 
-// Вспомогательная функция для JSON ответов
-func respondJSON(w http.ResponseWriter, status int, data interface{}) {
-    w.Header().Set("Content-Type", "application/json")
-    w.WriteHeader(status)
-    json.NewEncoder(w).Encode(data)
+	// Middleware для логирования
+	middleware := middlewares.LoggingMiddleware(mux, logger)
+
+	// Запуск сервера
+	addr := ":8080"
+	log.Printf("Starting server on %s", addr)
+
+	server := &http.Server{
+		Addr:         addr,
+		Handler:      middleware,
+		ReadTimeout:  10 * time.Second,
+		WriteTimeout: 10 * time.Second,
+	}
+
+	if err := server.ListenAndServe(); err != nil {
+		log.Fatal(err)
+	}
 }
