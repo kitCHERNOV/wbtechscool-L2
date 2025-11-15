@@ -2,10 +2,10 @@ package logger
 
 import (
 	"fmt"
-	"os"
-	"time"
-	"sync"
 	"log/slog"
+	"os"
+	"sync"
+	"time"
 )
 
 type Logger struct {
@@ -15,8 +15,8 @@ type Logger struct {
 }
 
 func NewLogger() (*Logger, error) {
-	const pathOfLogFile = "interanl/logs/wgetmanager.log"
-	file, err := os.OpenFile(pathOfLogFile, os.O_WRONLY | os.O_CREATE | os.O_APPEND, 0777)
+	const pathOfLogFile = "./internal/logs/wgetmanager.log"
+	file, err := os.OpenFile(pathOfLogFile, os.O_WRONLY|os.O_CREATE|os.O_APPEND, 0777)
 	if err != nil {
 		return nil, fmt.Errorf("failed to open log file: %w", err)
 	}
@@ -24,11 +24,10 @@ func NewLogger() (*Logger, error) {
 	var logger = &Logger{
 		file: file,
 	}
-	
+
 	logger.logger = slog.New(slog.NewJSONHandler(file, &slog.HandlerOptions{
 		Level: slog.LevelInfo,
 	}))
-
 
 	return logger, nil
 }
@@ -44,11 +43,10 @@ func NewLogger() (*Logger, error) {
 //     return l.file.Write([]byte(line))
 // }
 
-
 func (l *Logger) Close() error {
 	l.mu.Lock()
 	defer l.mu.Unlock()
-	
+
 	if l.file != nil {
 		return l.file.Close()
 	}
@@ -61,11 +59,11 @@ func (l *Logger) Write(p []byte) (int, error) {
 	defer l.mu.Unlock()
 
 	ts := time.Now().Format("2006-01-02 15:04:05")
-	
+
 	if len(p) > 0 && p[len(p)-1] == '\n' {
 		p = p[:len(p)-1]
 	}
-	
+
 	line := fmt.Sprintf("[%s] %s\n", ts, p)
 	return l.file.Write([]byte(line))
 }
