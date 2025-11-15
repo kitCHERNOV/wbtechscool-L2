@@ -3,11 +3,11 @@ package models
 import "time"
 
 type Event struct {
-	ID int
-	StartTime time.Time
-	EndTime time.Time
-	Title string
-	Description string
+	ID          int       `json:"id"`
+	StartTime   time.Time `json:"start_time"`
+	EndTime     time.Time `json:"end_time"`
+	Title       string    `json:"title"`
+	Description string    `json:"description"`
 }
 
 func NewEvent(
@@ -15,11 +15,11 @@ func NewEvent(
 	title, description string,
 ) Event {
 	event := Event{
-		StartTime: startTime,
-		EndTime: endTime,
-		Title: title, 
+		StartTime:   startTime,
+		EndTime:     endTime,
+		Title:       title,
 		Description: description,
 	}
 
 	return event
-} 
+}

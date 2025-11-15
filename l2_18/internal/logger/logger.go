@@ -16,6 +16,13 @@ type Logger struct {
 
 func NewLogger() (*Logger, error) {
 	const pathOfLogFile = "./internal/logs/wgetmanager.log"
+
+	// Создаем директорию если её нет
+	err := os.MkdirAll("./internal/logs", 0755)
+	if err != nil {
+		return nil, fmt.Errorf("failed to create logs directory: %w", err)
+	}
+
 	file, err := os.OpenFile(pathOfLogFile, os.O_WRONLY|os.O_CREATE|os.O_APPEND, 0777)
 	if err != nil {
 		return nil, fmt.Errorf("failed to open log file: %w", err)
