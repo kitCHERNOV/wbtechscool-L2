@@ -2,7 +2,6 @@ package models
 
 import "time"
 
-
 type Event struct {
 	ID int
 	StartTime time.Time

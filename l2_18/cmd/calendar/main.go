@@ -2,6 +2,7 @@ package main
 
 import (
 	"calendar/internal/calendar/middlewares"
+	config "calendar/internal/config"
 	"calendar/internal/handlers"
 	"calendar/internal/logger"
 	"calendar/internal/storage"
@@ -10,19 +11,11 @@ import (
 	"time"
 )
 
-// creating calander http service
-// TODO: complete the tasks below
-// POST /create_event — создание нового события;
-// POST /update_event — обновление существующего;
-// POST /delete_event — удаление;
-// GET /events_for_day — получить все события на день;
-// GET /events_for_week — события на неделю;
-// GET /events_for_month — события на месяц.
-
 func main() {
 	// Настройка конфигурации
+	cfg := config.MustLoad()
 
-	// инициализация логгера 
+	// инициализация логгера
 	logger, err := logger.NewLogger()
 	if err != nil {
 		log.Fatalf("Failed to initialize logger: %v", err)
@@ -31,14 +24,11 @@ func main() {
 
 	logger.Info("aplication starting")
 
-
-
 	// база данных событий календаря
 	var eventStorage = storage.NewEventStorage(logger)
 
 	// основной обработчик
 	handler := handlers.NewHandler(eventStorage, logger)
-
 
 	// Http сервис
 	mux := http.NewServeMux()
@@ -55,11 +45,11 @@ func main() {
 	middleware := middlewares.LoggingMiddleware(mux, logger)
 
 	// Запуск сервера
-	addr := ":8080"
-	log.Printf("Starting server on %s", addr)
+	//addr := ":8080"
+	log.Printf("Starting server on %s", cfg.Address)
 
 	server := &http.Server{
-		Addr:         addr,
+		Addr:         cfg.Address,
 		Handler:      middleware,
 		ReadTimeout:  10 * time.Second,
 		WriteTimeout: 10 * time.Second,
